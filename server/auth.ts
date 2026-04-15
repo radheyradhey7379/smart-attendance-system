@@ -21,7 +21,7 @@ export const handleRegister = async (req: any, res: any) => {
   const { 
     username, email, password, fullName, program,
     rollNumber, dob, fatherName, session, university,
-    studentIdCard, role = 'student' 
+    studentIdCard, branch, subBranch, role = 'student' 
   } = req.body;
 
   // Registration is only for students. Admins/Teachers must be seeded or added manually.
@@ -52,6 +52,8 @@ export const handleRegister = async (req: any, res: any) => {
         session: session || null, 
         university: university || null, 
         student_id_card: studentIdCard || null,
+        branch: branch || null,
+        sub_branch: subBranch || null,
         status: 'active',
         risk_score: 0,
         violation_count: 0,

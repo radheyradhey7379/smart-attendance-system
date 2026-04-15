@@ -104,20 +104,40 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
     }
   }, [session]);
 
+  const [selection, setSelection] = useState({ branch: '', subBranch: '' });
+
   const startClass = async () => {
+    if (!selection.branch || !selection.subBranch) {
+        alert('Please select a Branch and Batch first.');
+        return;
+    }
+
     setLoading(true);
     try {
-      const pos = await new Promise<GeolocationPosition>((res, rej) => navigator.geolocation.getCurrentPosition(res, rej));
+      // Trigger native permission prompt
+      const pos = await new Promise<GeolocationPosition>((res, rej) => {
+        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 5000 });
+      });
+
       const res = await apiFetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+        body: JSON.stringify({ 
+            lat: pos.coords.latitude, 
+            lon: pos.coords.longitude,
+            branch: selection.branch,
+            subBranch: selection.subBranch
+        }),
       });
       const data = await res.json();
       setSession(data);
       setTimeLeft(600);
-    } catch (err) {
-      alert('Failed to start session. Ensure GPS is ON.');
+    } catch (err: any) {
+      if (err.code === 1) {
+        alert('Location Permission Denied. Please enable GPS in your phone settings for this app.');
+      } else {
+        alert('GPS Timeout: Ensure your GPS is ON and you are in an open area.');
+      }
     } finally {
       setLoading(false);
     }
@@ -161,10 +181,15 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
               <LayoutDashboard size={20} />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900 leading-tight">
-                {user.role === 'admin' ? 'Developer Console' : 'Professor Portal'}
-              </h1>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-gray-900 leading-tight">
+                  {user.role === 'admin' ? 'Developer Console' : 'Professor Portal'}
+                </h1>
+                <button onClick={onLogout} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all ml-1">
+                  <LogOut size={16} />
+                </button>
+              </div>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mt-1">
                 {user.role === 'admin' ? 'System Management' : 'Attendance Control Center'}
               </p>
             </div>
@@ -188,9 +213,7 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
                 </button>
               ))}
             </div>
-            <button onClick={onLogout} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
-              <LogOut size={20} />
-            </button>
+            </div>
           </div>
         </div>
       </header>
@@ -200,13 +223,41 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100">
             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Session Control</h2>
             {!session ? (
-              <button 
-                onClick={startClass}
-                disabled={loading}
-                className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-bold uppercase tracking-widest hover:bg-indigo-700 active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-3 shadow-xl shadow-indigo-100"
-              >
-                {loading ? <Loader2 className="animate-spin" size={24} /> : <><QrCode size={32} /> <span>Start New Class</span></>}
-              </button>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                   <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">Branch</label>
+                      <select 
+                        value={selection.branch}
+                        onChange={(e) => setSelection({ ...selection, branch: e.target.value })}
+                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      >
+                        <option value="">Select</option>
+                        {['CS', 'IT', 'ME', 'CE', 'EE'].map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                   </div>
+                   <div>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">Batch</label>
+                      <select 
+                        value={selection.subBranch}
+                        onChange={(e) => setSelection({ ...selection, subBranch: e.target.value })}
+                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      >
+                        <option value="">Select</option>
+                        {['B1', 'B2', 'B3', 'B4'].map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
+                   </div>
+                </div>
+
+                <button 
+                  onClick={startClass}
+                  disabled={loading || !selection.branch || !selection.subBranch}
+                  className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-bold uppercase tracking-widest hover:bg-indigo-700 active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-3 shadow-xl shadow-indigo-100 disabled:opacity-50 disabled:shadow-none"
+                >
+                  {loading ? <Loader2 className="animate-spin" size={24} /> : <><QrCode size={32} /> <span>Start New Class</span></>}
+                </button>
+                <p className="text-[9px] text-gray-400 font-medium text-center">Your GPS coordinates will be locked for attendee validation.</p>
+              </div>
             ) : (
               <div className="space-y-6 text-center">
                 <div className="bg-white p-6 border-2 border-dashed border-indigo-100 rounded-3xl inline-block relative group">

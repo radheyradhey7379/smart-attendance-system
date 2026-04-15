@@ -28,7 +28,9 @@ export const AuthPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
     fatherName: '',
     session: '',
     university: '',
-    studentIdCard: ''
+    studentIdCard: '',
+    branch: '',
+    subBranch: ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -144,6 +146,30 @@ export const AuthPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
                       onChange={(e) => setFormData({ ...formData, program: e.target.value })}
                       className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1">Branch</label>
+                    <select
+                      value={formData.branch}
+                      onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      required
+                    >
+                      <option value="">Select Branch</option>
+                      {['CS', 'IT', 'ME', 'CE', 'EE'].map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1">Batch (Sub-Branch)</label>
+                    <select
+                      value={formData.subBranch}
+                      onChange={(e) => setFormData({ ...formData, subBranch: e.target.value })}
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      required
+                    >
+                      <option value="">Select Batch</option>
+                      {['B1', 'B2', 'B3', 'B4'].map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
                   </div>
                 </>
               )}

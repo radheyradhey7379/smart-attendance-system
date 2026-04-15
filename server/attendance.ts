@@ -76,6 +76,14 @@ export const handleMarkAttendance = async (req: any, res: any) => {
   
   const student = studentDoc.data() as any;
   
+  // Branch & Sub-Branch Validation
+  if (session.branch && student.branch !== session.branch) {
+    return res.status(403).json({ error: `This session is for ${session.branch} branch students only.` });
+  }
+  if (session.sub_branch && student.sub_branch !== session.sub_branch) {
+    return res.status(403).json({ error: `This session is for Batch ${session.sub_branch} only.` });
+  }
+
   if (student.device_id && student.device_id !== deviceFingerprint) {
     await logEvent(req.user.id, 'ATTENDANCE_FAIL', 'Device mismatch detected', req);
     return res.status(403).json({ error: 'Unauthorized device. Please use your registered device.' });
@@ -123,6 +131,8 @@ export const handleMarkAttendance = async (req: any, res: any) => {
     lon: lon || 0,
     device_id: deviceFingerprint,
     face_snapshot: faceSnapshot,
+    branch: student.branch || 'N/A',
+    sub_branch: student.sub_branch || 'N/A',
     is_suspicious: isSuspicious,
     rejection_reason: rejectionReason,
     status: attendanceStatus,

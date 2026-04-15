@@ -45,14 +45,16 @@ export const generateSignedToken = (sessionId: string, token: string, adminId: s
 };
 
 export const handleStartSession = async (req: any, res: any) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-  const { lat, lon } = req.body;
+  if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
+  const { lat, lon, branch, subBranch } = req.body;
   const token = crypto.randomBytes(16).toString('hex');
   
   const docRef = await db.collection('sessions').add({
       token, 
       lat, 
       lon, 
+      branch: branch || null,
+      sub_branch: subBranch || null,
       admin_id: req.user.id,
       created_at: FieldValue.serverTimestamp(),
       is_active: 1
@@ -60,7 +62,7 @@ export const handleStartSession = async (req: any, res: any) => {
   
   const signedToken = generateSignedToken(docRef.id, token, req.user.id, req.user.email);
 
-  await logEvent(req.user.id, 'SESSION_START', `Professor started class session ${docRef.id}`, req);
+  await logEvent(req.user.id, 'SESSION_START', `Professor started class session ${docRef.id} for ${branch} bin ${subBranch}`, req);
   res.json({ id: docRef.id, token: signedToken });
 };
 
