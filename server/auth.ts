@@ -120,7 +120,12 @@ export const handleLogin = async (req: any, res: any) => {
   }, JWT_SECRET, { expiresIn: '1d' });
   
   await logEvent(user.id, 'LOGIN_SUCCESS', `Successful login: ${user.username || user.email} (${user.role})`, req);
-  res.cookie('token', token, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
+  res.cookie('token', token, { 
+    httpOnly: true, 
+    sameSite: 'none', 
+    secure: true, // Required for sameSite: 'none'
+    maxAge: 24 * 60 * 60 * 1000 
+  });
   res.json({ id: user.id, username: user.username, email: user.email, role: user.role, fullName: user.full_name });
 };
 

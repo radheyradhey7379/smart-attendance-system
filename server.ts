@@ -30,9 +30,13 @@ async function startServer() {
   
   app.use(cors({ 
     origin: (origin, callback) => {
+        // DEBUG: Log the incoming origin to identify mobile app strings
+        if (origin) console.log(`[DEBUG] Incoming CORS Origin: ${origin}`);
+        
         if (!origin || whitelist.some(w => typeof w === 'string' ? w === origin : w.test(origin))) {
             callback(null, true);
         } else {
+            console.warn(`[SECURITY] Blocked CORS Origin: ${origin}`);
             callback(new Error('Not allowed by CORS'));
         }
     },
