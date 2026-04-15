@@ -71,15 +71,22 @@ export const handleLogin = async (req: any, res: any) => {
   let collectionName = '';
   
   // Isolated login paths based on role
-  if (role === 'admin') {
-    collectionName = 'admins';
-    const q = await db.collection('admins').where('email', '==', email).get();
-    if (!q.empty) userDoc = q.docs[0];
-  } else if (role === 'teacher') {
-    collectionName = 'teachers';
-    const q = await db.collection('teachers').where('email', '==', email).get();
-    if (!q.empty) userDoc = q.docs[0];
+  if (role === 'teacher' || role === 'admin') {
+    // Faculty Login: Check both admins and teachers collections
+    const [adminSnapshot, teacherSnapshot] = await Promise.all([
+      db.collection('admins').where('email', '==', email).get(),
+      db.collection('teachers').where('email', '==', email).get()
+    ]);
+    
+    if (!adminSnapshot.empty) {
+      userDoc = adminSnapshot.docs[0];
+      collectionName = 'admins';
+    } else if (!teacherSnapshot.empty) {
+      userDoc = teacherSnapshot.docs[0];
+      collectionName = 'teachers';
+    }
   } else {
+    // Student Login
     collectionName = 'students';
     const q = await db.collection('students').where('username', '==', username).get();
     if (!q.empty) userDoc = q.docs[0];
