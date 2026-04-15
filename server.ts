@@ -17,6 +17,7 @@ async function startServer() {
   await seedTeachers();
 
   const app = express();
+  app.set('trust proxy', 1);
   
   // Security: Whitelist only your future Firebase Hosting URL
   const whitelist = [

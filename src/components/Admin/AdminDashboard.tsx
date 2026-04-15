@@ -154,17 +154,48 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
     } catch (err) { alert('Failed to end session'); }
   };
 
+  // 1. Attendance Polling (Every 3 seconds)
   useEffect(() => {
     if (session) {
       const interval = setInterval(async () => {
-        const res = await apiFetch(`/api/sessions/${session.id}/attendance`);
-        const data = await res.json();
-        setAttendance(data);
-        setTimeLeft(prev => (prev > 0 ? prev - 1 : 0));
+        try {
+          const res = await apiFetch(`/api/sessions/${session.id}/attendance`);
+          if (res.ok) {
+            const data = await res.json();
+            setAttendance(data);
+          }
+        } catch (err) { console.error('Polling failed'); }
       }, 3000);
       return () => clearInterval(interval);
     }
   }, [session]);
+
+  // 2. Real-time Countdown Timer (Every 1 second)
+  useEffect(() => {
+    if (session) {
+      const interval = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            // Trigger Auto-Refresh when timer hits zero
+            refreshQR();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [session]);
+
+  const refreshQR = async () => {
+    if (!session) return;
+    try {
+      const res = await apiFetch(`/api/sessions/${session.id}/refresh`);
+      const data = await res.json();
+      setSession(data);
+      setTimeLeft(600); // Reset to 10 minutes
+    } catch (err) { console.error('Auto-refresh failed'); }
+  };
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
