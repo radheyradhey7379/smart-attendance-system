@@ -22,6 +22,8 @@ async function startServer() {
   const whitelist = [
     'http://localhost:5173', 
     'http://localhost:3000',
+    'http://localhost',      // Android Capacitor
+    'capacitor://localhost', // iOS Capacitor
     /\.web\.app$/, 
     /\.firebaseapp\.com$/
   ];
