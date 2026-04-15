@@ -1,0 +1,9 @@
+{
+  "name": "Smart Attendance System",
+  "description": "A secure, proxy-resistant attendance system using dynamic QR codes, geolocation, and device validation.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}
