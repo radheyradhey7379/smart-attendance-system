@@ -10,7 +10,7 @@ interface User {
   id: number;
   username: string;
   email: string;
-  role: 'admin' | 'student';
+  role: 'admin' | 'teacher' | 'student';
   fullName: string;
 }
 
@@ -54,7 +54,7 @@ export default function App() {
       <div className="min-h-screen bg-gray-50">
         {!user ? (
           <AuthPage onLogin={setUser} />
-        ) : user.role === 'admin' ? (
+        ) : (user.role === 'admin' || user.role === 'teacher') ? (
           <AdminDashboard user={user} onLogout={handleLogout} />
         ) : (
           <StudentDashboard user={user} onLogout={handleLogout} />

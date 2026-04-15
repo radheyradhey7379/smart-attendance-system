@@ -11,7 +11,7 @@ interface User {
   id: number;
   username: string;
   email: string;
-  role: 'admin' | 'student';
+  role: 'admin' | 'teacher' | 'student';
   fullName: string;
 }
 

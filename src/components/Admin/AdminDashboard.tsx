@@ -12,7 +12,7 @@ interface User {
   id: number;
   username: string;
   email: string;
-  role: 'admin' | 'student';
+  role: 'admin' | 'teacher' | 'student';
   fullName: string;
 }
 
@@ -161,19 +161,23 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
               <LayoutDashboard size={20} />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900 leading-tight">Professor Portal</h1>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Attendance Control Center</p>
+              <h1 className="text-lg font-bold text-gray-900 leading-tight">
+                {user.role === 'admin' ? 'Developer Console' : 'Professor Portal'}
+              </h1>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                {user.role === 'admin' ? 'System Management' : 'Attendance Control Center'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex bg-gray-100 p-1 rounded-xl">
               {[
-                { id: 'attendance', label: 'Feed', icon: Users },
-                { id: 'timeline', label: 'Timeline', icon: Activity },
-                { id: 'logs', label: 'Logs', icon: History },
-                { id: 'suspicious', label: 'Alerts', icon: AlertTriangle },
-                { id: 'security', label: 'Security', icon: ShieldAlert }
-              ].map(item => (
+                { id: 'attendance', label: 'Feed', icon: Users, visible: true },
+                { id: 'timeline', label: 'Timeline', icon: Activity, visible: true },
+                { id: 'logs', label: 'Logs', icon: History, visible: user.role === 'admin' },
+                { id: 'suspicious', label: 'Alerts', icon: AlertTriangle, visible: user.role === 'admin' },
+                { id: 'security', label: 'Security', icon: ShieldAlert, visible: user.role === 'admin' }
+              ].filter(item => item.visible).map(item => (
                 <button 
                   key={item.id}
                   onClick={() => setView(item.id as any)}
