@@ -142,5 +142,31 @@ export const securityMiddleware = async (req: any, res: any, next: any) => {
   if (await isIpBlocked(ip)) {
     return res.status(403).json({ error: 'Access denied. Your IP has been blocked for security reasons.' });
   }
+
+  // VPN/Proxy Detection: Basic Header Check
+  const proxyHeaders = ['x-forwarded-for', 'proxy-client-ip', 'wl-proxy-client-ip', 'http_x_forwarded_for', 'http_x_forwarded', 'http_x_cluster_client_ip', 'http_client_ip', 'http_forwarded_for', 'http_forwarded', 'http_via', 'http_x_coming_from', 'http_coming_from', 'via'];
+  const hasProxyHeader = proxyHeaders.some(h => req.headers[h]);
+  
+  if (hasProxyHeader && process.env.NODE_ENV === 'production') {
+      console.warn(`[SECURITY] Proxy detected for IP: ${ip}`);
+      // Log it but don't strictly block yet unless specifically requested to avoid Render false positives
+  }
+
   next();
+};
+
+export const checkVulnerability = async (req: any, res: any) => {
+    const ip = String(req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress);
+    const { timezone, localIp } = req.body;
+    
+    // Logic: If timezone doesn't match the known region of the server or if headers are suspicious
+    const proxyHeaders = ['via', 'x-forwarded-for', 'proxy-connection'];
+    const isSuspicious = proxyHeaders.some(h => req.headers[h]);
+    
+    // For now, return status. In production we would use a GeoIP library.
+    res.json({ 
+        vpnDetected: isSuspicious,
+        ip: ip,
+        status: 'secure'
+    });
 };

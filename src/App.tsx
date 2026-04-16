@@ -19,13 +19,13 @@ interface User {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isDevUnlocked, setIsDevUnlocked] = useState(false);
+  const [isDevUnlocked, setIsDevUnlocked] = useState(() => sessionStorage.getItem('dev_unlocked') === 'true');
   const [showDevChallenge, setShowDevChallenge] = useState(false);
 
   // New: Prompt Admin upon login
   const handleAdminLogin = (u: User) => {
     setUser(u);
-    if (u.role === 'admin') {
+    if (u.role === 'admin' && !isDevUnlocked) {
         const wantsDev = window.confirm("Access Developer Console?\n(Requires Secure Key Identity Verification)");
         if (wantsDev) setShowDevChallenge(true);
     }
@@ -38,6 +38,10 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           setUser(data);
+          // If admin was previously unlocked, keep them there
+          if (data.role === 'admin' && sessionStorage.getItem('dev_unlocked') === 'true') {
+              setIsDevUnlocked(true);
+          }
         }
       } catch (err) {
         console.error('Auth check failed');
@@ -53,6 +57,13 @@ export default function App() {
     setUser(null);
     setIsDevUnlocked(false);
     setShowDevChallenge(false);
+    sessionStorage.removeItem('dev_unlocked');
+  };
+
+  const handleDevSuccess = () => {
+      setIsDevUnlocked(true);
+      setShowDevChallenge(false);
+      sessionStorage.setItem('dev_unlocked', 'true');
   };
 
   if (loading) return (
@@ -73,7 +84,7 @@ export default function App() {
           <>
             {showDevChallenge && (
               <SecureKeyModal 
-                onSuccess={() => { setIsDevUnlocked(true); setShowDevChallenge(false); }}
+                onSuccess={handleDevSuccess}
                 onCancel={() => setShowDevChallenge(false)} 
               />
             )}

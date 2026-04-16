@@ -8,7 +8,7 @@ import { seedTeachers } from './server/teachers.js';
 import { authenticate, handleRegister, handleLogin, handleLogout, verifyDevSecret } from './server/auth.js';
 import { handleStartSession, handleEndSession, handleRefreshToken } from './server/sessions.js';
 import { handleMarkAttendance } from './server/attendance.js';
-import { logSuspiciousCapture, securityMiddleware, triggerSecurityIncident } from './server/security.js';
+import { logSuspiciousCapture, securityMiddleware, triggerSecurityIncident, checkVulnerability } from './server/security.js';
 
 const PORT = process.env.PORT || 3000;
 
@@ -172,6 +172,8 @@ async function startServer() {
     await db.collection(collection).doc(userId).update({ status });
     res.json({ success: true });
   });
+
+  app.post('/api/security/check-vulnerability', authenticate, checkVulnerability);
 
   // --- HEALTH & MONITORING ---
   app.get('/api/admin/health-stats', authenticate, async (req: any, res) => {

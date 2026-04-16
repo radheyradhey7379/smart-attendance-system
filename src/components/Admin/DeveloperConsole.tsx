@@ -6,6 +6,7 @@ import {
   Settings, Terminal, Database, Ban
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api.js';
+import { SecurityGuard } from '../Common/SecurityGuard.js';
 
 interface User {
   id: number;
@@ -41,6 +42,8 @@ export const DeveloperConsole = ({ user, onLogout }: { user: User, onLogout: () 
         setHealth(await healthRes.json());
     } catch (e) {
         console.error('Fetch failed');
+        // Reset to empty arrays on failure to avoid crashes
+        setLogs([]); setCaptures([]); setIncidents([]); setBlockedIps([]);
     } finally {
         setLoading(false);
     }
@@ -53,7 +56,8 @@ export const DeveloperConsole = ({ user, onLogout }: { user: User, onLogout: () 
   }, [view]);
 
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-200 flex flex-col font-mono">
+    <SecurityGuard onLogout={onLogout}>
+      <div className="min-h-screen bg-[#0f172a] text-slate-200 flex flex-col font-mono">
       <header className="bg-slate-900 border-b border-slate-800 px-8 py-4 sticky top-0 z-30 shadow-2xl">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -135,22 +139,27 @@ export const DeveloperConsole = ({ user, onLogout }: { user: User, onLogout: () 
                             <div className="w-2 h-2 rounded-full bg-emerald-500" />
                         </div>
                     </div>
-                    <div className="p-4 space-y-2 h-[600px] overflow-y-auto">
-                        {logs.map(log => (
-                            <div key={log.id} className="text-[11px] leading-relaxed flex gap-4 border-b border-slate-800/50 pb-2">
+                    <div className="p-4 space-y-2 h-[600px] overflow-y-auto font-mono">
+                        {Array.isArray(logs) && logs.length > 0 ? logs.map(log => (
+                            <div key={log.id} className="text-[11px] leading-relaxed flex gap-4 border-b border-slate-800/50 pb-2 hover:bg-slate-800 transition-colors group">
                                 <span className="text-slate-500 font-bold">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
                                 <span className="text-indigo-400 font-bold whitespace-nowrap">{log.event_type}</span>
                                 <span className="text-slate-300 italic">{log.description}</span>
-                                <span className="text-slate-600 ml-auto whitespace-nowrap">SRC://{log.ip_address}</span>
+                                <span className="text-slate-600 ml-auto whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">SRC://{log.ip_address}</span>
                             </div>
-                        ))}
+                        )) : (
+                            <div className="flex flex-col items-center justify-center h-full text-slate-600 text-[10px] space-y-2 italic">
+                                <Database size={24} />
+                                <span>NO_LOG_DATA_DETECTED</span>
+                            </div>
+                        )}
                     </div>
                 </motion.div>
             )}
 
             {view === 'suspicious' && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {captures.map(cap => (
+                    {(Array.isArray(captures) && captures.length > 0) ? captures.map(cap => (
                         <div key={cap.id} className="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden shadow-xl hover:border-rose-500/50 transition-all group">
                             <div className="aspect-video relative overflow-hidden bg-slate-950">
                                 {cap.image_data ? <img src={cap.image_data} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="evidence"/> : <div className="w-full h-full flex items-center justify-center text-slate-800 italic">no_visual_data</div>}
@@ -164,13 +173,17 @@ export const DeveloperConsole = ({ user, onLogout }: { user: User, onLogout: () 
                                 <p className="text-[10px] text-slate-500">IP: {cap.ip_address} • {new Date(cap.timestamp).toLocaleString()}</p>
                             </div>
                         </div>
-                    ))}
+                    )) : (
+                        <div className="col-span-full py-20 text-center text-slate-600 italic uppercase tracking-widest text-xs">
+                           NO_SUSPECT_DATA_FOUND
+                        </div>
+                    )}
                 </motion.div>
             )}
 
             {view === 'security' && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                    {incidents.map(inc => (
+                    {(Array.isArray(incidents) && incidents.length > 0) ? incidents.map(inc => (
                         <div key={inc.id} className="bg-slate-900 p-6 rounded-2xl border-l-4 border-l-rose-500 border border-slate-800 shadow-xl flex items-start gap-6">
                             <div className="p-3 bg-rose-500/10 rounded-xl text-rose-500">
                                 <ShieldAlert size={24} />
@@ -188,11 +201,16 @@ export const DeveloperConsole = ({ user, onLogout }: { user: User, onLogout: () 
                                 </div>
                             </div>
                         </div>
-                    ))}
+                    )) : (
+                        <div className="text-center py-20 text-emerald-500 uppercase tracking-[2em] font-black text-[10px] opacity-20">
+                            SYSTEM_SECURE
+                        </div>
+                    )}
                 </motion.div>
             )}
         </AnimatePresence>
       </main>
     </div>
+    </SecurityGuard>
   );
 };

@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   QrCode, Clock, XCircle, Users, RefreshCw, MapPin, 
-  School, CheckCircle2, Loader2, History
+  School, CheckCircle2, Loader2, History, User
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api.js';
+import { SecurityGuard } from '../Common/SecurityGuard.js';
 
 interface User {
   id: number;
@@ -143,7 +144,8 @@ export const ProfessorPortal = ({ user, onLogout }: { user: User, onLogout: () =
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans">
+    <SecurityGuard onLogout={onLogout}>
+      <div className="min-h-screen bg-[#f8fafc] flex flex-col font-sans">
       <header className="bg-white border-b border-gray-100 px-8 py-4 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -260,5 +262,6 @@ export const ProfessorPortal = ({ user, onLogout }: { user: User, onLogout: () =
         </div>
       </main>
     </div>
+    </SecurityGuard>
   );
 };
