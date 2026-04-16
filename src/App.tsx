@@ -1,10 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
-import { ErrorBoundary } from './components/Common/ErrorBoundary.js';
 import { AuthPage } from './components/Auth/AuthPage.js';
 import { ProfessorPortal } from './components/Admin/ProfessorPortal.js';
-import { DeveloperConsole } from './components/Admin/DeveloperConsole.js';
 import { SecureKeyModal } from './components/Admin/SecureKeyModal.js';
+const DeveloperConsole = React.lazy(() => import('./components/Admin/DeveloperConsole.js'));
 import { StudentDashboard } from './components/Student/StudentDashboard.js';
 import { apiFetch } from './lib/api.js';
 
@@ -22,13 +19,10 @@ export default function App() {
   const [isDevUnlocked, setIsDevUnlocked] = useState(() => sessionStorage.getItem('dev_unlocked') === 'true');
   const [showDevChallenge, setShowDevChallenge] = useState(false);
 
-  // New: Prompt Admin upon login
+  // God Mode Summoning
   const handleAdminLogin = (u: User) => {
     setUser(u);
-    if (u.role === 'admin' && !isDevUnlocked) {
-        const wantsDev = window.confirm("Access Developer Console?\n(Requires Secure Key Identity Verification)");
-        if (wantsDev) setShowDevChallenge(true);
-    }
+    // No longer auto-prompting for Dev Console
   };
 
   useEffect(() => {
@@ -81,7 +75,11 @@ export default function App() {
         {!user ? (
           <AuthPage onLogin={handleAdminLogin} />
         ) : user.role === 'admin' ? (
-          <>
+          <React.Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+              <Loader2 className="animate-spin text-indigo-500" size={32} />
+            </div>
+          }>
             {showDevChallenge && (
               <SecureKeyModal 
                 onSuccess={handleDevSuccess}
@@ -91,9 +89,13 @@ export default function App() {
             {isDevUnlocked ? (
                <DeveloperConsole user={user} onLogout={handleLogout} />
             ) : (
-               <ProfessorPortal user={user} onLogout={handleLogout} />
+               <ProfessorPortal 
+                 user={user} 
+                 onLogout={handleLogout} 
+                 onSecretTrigger={() => setShowDevChallenge(true)} 
+               />
             )}
-          </>
+          </React.Suspense>
         ) : user.role === 'teacher' ? (
           <ProfessorPortal user={user} onLogout={handleLogout} />
         ) : (

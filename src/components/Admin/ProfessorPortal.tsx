@@ -28,7 +28,7 @@ interface AttendanceRecord {
   status: 'Present' | 'Late' | 'Manual';
 }
 
-export const ProfessorPortal = ({ user, onLogout }: { user: User, onLogout: () => void }) => {
+export const ProfessorPortal = ({ user, onLogout, onSecretTrigger }: { user: User, onLogout: () => void, onSecretTrigger?: () => void }) => {
   const [session, setSession] = useState<{ id: number, token: string } | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [timeline, setTimeline] = useState<any[]>([]);
@@ -37,6 +37,18 @@ export const ProfessorPortal = ({ user, onLogout }: { user: User, onLogout: () =
   const [lastKnownLocation, setLastKnownLocation] = useState<{lat: number, lon: number} | null>(null);
   const [isFullscreenQR, setIsFullscreenQR] = useState(false);
   const [view, setView] = useState<'attendance' | 'timeline'>('attendance');
+  const [secretCounter, setSecretCounter] = useState(0);
+
+  const handleSecretClick = () => {
+    if (!onSecretTrigger) return;
+    const next = secretCounter + 1;
+    if (next >= 10) {
+        onSecretTrigger();
+        setSecretCounter(0);
+    } else {
+        setSecretCounter(next);
+    }
+  };
 
   // Geolocation Warming
   useEffect(() => {
@@ -149,10 +161,10 @@ export const ProfessorPortal = ({ user, onLogout }: { user: User, onLogout: () =
       <header className="bg-white border-b border-gray-100 px-8 py-4 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="p-2 bg-indigo-600 rounded-xl text-white">
+            <div className="p-2 bg-indigo-600 rounded-xl text-white cursor-pointer select-none" onClick={handleSecretClick}>
               <School size={24} />
             </div>
-            <div>
+            <div onClick={handleSecretClick} className="cursor-pointer select-none">
               <h1 className="text-xl font-bold text-gray-900 tracking-tight">Professor Portal</h1>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
