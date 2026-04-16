@@ -39,7 +39,8 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
   const [timeline, setTimeline] = useState<any[]>([]);
   const [health, setHealth] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
+  const [timeLeft, setTimeLeft] = useState(15); // 15 seconds for QR refresh
+  const [lastKnownLocation, setLastKnownLocation] = useState<{lat: number, lon: number} | null>(null);
   const [view, setView] = useState<'attendance' | 'logs' | 'suspicious' | 'security' | 'timeline'>('attendance');
   const [isFullscreenQR, setIsFullscreenQR] = useState(false);
 
@@ -87,51 +88,67 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
     if (view === 'timeline') fetchTimeline();
   }, [view, session]);
 
-  // Dynamic QR Refresh Logic
+  // Geolocation Warming: Fetch location as soon as dashboard opens
+  useEffect(() => {
+    const warmGPS = () => {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => setLastKnownLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+            (err) => console.log('GPS Warming failed:', err.message),
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    };
+    warmGPS();
+    const interval = setInterval(warmGPS, 30000); // Update every 30s in background
+    return () => clearInterval(interval);
+  }, []);
+
+  // Dynamic QR Refresh Logic (15 seconds as requested)
   useEffect(() => {
     if (session) {
       const interval = setInterval(async () => {
         if (document.visibilityState !== 'visible') return;
-        try {
-          const res = await apiFetch(`/api/sessions/${session.id}/refresh`);
-          const data = await res.json();
-          if (data.token) {
-            setSession(prev => prev ? { ...prev, token: data.token } : null);
-          }
-        } catch (err) { console.error('QR Refresh failed'); }
-      }, 5000); 
+        await refreshQR();
+      }, 15000); 
       return () => clearInterval(interval);
     }
   }, [session]);
 
-  const [selection, setSelection] = useState({ branch: '', subBranch: '' });
+  const [selection, setSelection] = useState({ className: '', branch: '', section: '' });
 
   const startClass = async () => {
-    if (!selection.branch || !selection.subBranch) {
-        alert('Please select a Branch and Batch first.');
+    if (!selection.className || !selection.branch || !selection.section) {
+        alert('Please select Class, Branch, and Section first.');
         return;
     }
 
     setLoading(true);
     try {
-      // Trigger native permission prompt
-      const pos = await new Promise<GeolocationPosition>((res, rej) => {
-        navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 5000 });
-      });
+      let lat = lastKnownLocation?.lat;
+      let lon = lastKnownLocation?.lon;
+
+      // If no cached location, fetch fresh one (instant if warmed)
+      if (!lat || !lon) {
+          const pos = await new Promise<GeolocationPosition>((res, rej) => {
+            navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 5000 });
+          });
+          lat = pos.coords.latitude;
+          lon = pos.coords.longitude;
+      }
 
       const res = await apiFetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-            lat: pos.coords.latitude, 
-            lon: pos.coords.longitude,
+            lat, 
+            lon,
+            className: selection.className,
             branch: selection.branch,
-            subBranch: selection.subBranch
+            section: selection.section
         }),
       });
       const data = await res.json();
       setSession(data);
-      setTimeLeft(600);
+      setTimeLeft(15);
     } catch (err: any) {
       if (err.code === 1) {
         alert('Location Permission Denied. Please enable GPS in your phone settings for this app.');
@@ -175,11 +192,7 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
     if (session) {
       const interval = setInterval(() => {
         setTimeLeft(prev => {
-          if (prev <= 1) {
-            // Trigger Auto-Refresh when timer hits zero
-            refreshQR();
-            return 0;
-          }
+          if (prev <= 1) return 15; // Reset handled by the 15s refresh hook
           return prev - 1;
         });
       }, 1000);
@@ -191,9 +204,11 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
     if (!session) return;
     try {
       const res = await apiFetch(`/api/sessions/${session.id}/refresh`);
-      const data = await res.json();
-      setSession(data);
-      setTimeLeft(600); // Reset to 10 minutes
+      if (res.ok) {
+          const data = await res.json();
+          setSession(prev => prev ? { ...prev, token: data.token } : null);
+          setTimeLeft(15); // Reset to 15 seconds
+      }
     } catch (err) { console.error('Auto-refresh failed'); }
   };
 
@@ -255,37 +270,50 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Session Control</h2>
             {!session ? (
               <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                    <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">Branch</label>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">Class (Year)</label>
                       <select 
-                        value={selection.branch}
-                        onChange={(e) => setSelection({ ...selection, branch: e.target.value })}
-                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        value={selection.className}
+                        onChange={(e) => setSelection({ ...selection, className: e.target.value })}
+                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                       >
-                        <option value="">Select</option>
-                        {['CS', 'IT', 'ME', 'CE', 'EE'].map(b => <option key={b} value={b}>{b}</option>)}
+                        <option value="">Select Year</option>
+                        {['1st Year', '2nd Year', '3rd Year', 'Final Year'].map(b => <option key={b} value={b}>{b}</option>)}
                       </select>
                    </div>
-                   <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">Batch</label>
-                      <select 
-                        value={selection.subBranch}
-                        onChange={(e) => setSelection({ ...selection, subBranch: e.target.value })}
-                        className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                      >
-                        <option value="">Select</option>
-                        {['B1', 'B2', 'B3', 'B4'].map(b => <option key={b} value={b}>{b}</option>)}
-                      </select>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">Branch</label>
+                        <select 
+                          value={selection.branch}
+                          onChange={(e) => setSelection({ ...selection, branch: e.target.value })}
+                          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        >
+                          <option value="">Select</option>
+                          {['CS', 'IT', 'ME', 'CE', 'EE'].map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">Section</label>
+                        <select 
+                          value={selection.section}
+                          onChange={(e) => setSelection({ ...selection, section: e.target.value })}
+                          className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        >
+                          <option value="">Select</option>
+                          {['A', 'B', 'C', 'D'].map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                      </div>
                    </div>
                 </div>
 
                 <button 
                   onClick={startClass}
-                  disabled={loading || !selection.branch || !selection.subBranch}
+                  disabled={loading || !selection.className || !selection.branch || !selection.section}
                   className="w-full bg-indigo-600 text-white p-5 rounded-2xl font-bold uppercase tracking-widest hover:bg-indigo-700 active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-3 shadow-xl shadow-indigo-100 disabled:opacity-50 disabled:shadow-none"
                 >
-                  {loading ? <Loader2 className="animate-spin" size={24} /> : <><QrCode size={32} /> <span>Start New Class</span></>}
+                  {loading ? <Loader2 className="animate-spin" size={24} /> : <><QrCode size={32} /> <span>Generate Attendance QR</span></>}
                 </button>
                 <p className="text-[9px] text-gray-400 font-medium text-center">Your GPS coordinates will be locked for attendee validation.</p>
               </div>
@@ -302,7 +330,7 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-center gap-2 text-indigo-600 font-bold bg-indigo-50 py-2 rounded-xl">
                     <Clock size={16} />
-                    <span className="text-sm">Window: {formatTime(timeLeft)}</span>
+                    <span className="text-sm">QR Refresh: {timeLeft}s</span>
                   </div>
                   <button 
                     onClick={() => setIsFullscreenQR(true)}
@@ -679,7 +707,7 @@ export const AdminDashboard = ({ user, onLogout }: { user: User, onLogout: () =>
                   className="w-[400px] h-[400px]"
                 />
                 <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-indigo-600 text-white px-6 py-2 rounded-full font-bold text-sm uppercase tracking-widest shadow-xl">
-                  Dynamic QR: {formatTime(timeLeft)}
+                  Next QR: {timeLeft}s
                 </div>
               </div>
 

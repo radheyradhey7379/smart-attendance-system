@@ -46,7 +46,7 @@ export const generateSignedToken = (sessionId: string, token: string, adminId: s
 
 export const handleStartSession = async (req: any, res: any) => {
   if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
-  const { lat, lon, branch, subBranch } = req.body;
+  const { lat, lon, branch, subBranch, className, section } = req.body;
   const token = crypto.randomBytes(16).toString('hex');
   
   const docRef = await db.collection('sessions').add({
@@ -55,6 +55,8 @@ export const handleStartSession = async (req: any, res: any) => {
       lon, 
       branch: branch || null,
       sub_branch: subBranch || null,
+      class: className || null,
+      section: section || null,
       admin_id: req.user.id,
       created_at: FieldValue.serverTimestamp(),
       is_active: 1
@@ -67,7 +69,7 @@ export const handleStartSession = async (req: any, res: any) => {
 };
 
 export const handleRefreshToken = async (req: any, res: any) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
   const { sessionId } = req.params;
   const sessionDoc = await db.collection('sessions').doc(sessionId).get();
   
@@ -81,7 +83,7 @@ export const handleRefreshToken = async (req: any, res: any) => {
 };
 
 export const handleEndSession = async (req: any, res: any) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
   await db.collection('sessions').doc(req.params.id).update({
       is_active: 0, 
       end_time: FieldValue.serverTimestamp()
