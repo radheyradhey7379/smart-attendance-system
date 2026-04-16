@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import db, { initDb } from './server/db.js';
 import { seedTeachers } from './server/teachers.js';
-import { authenticate, handleRegister, handleLogin, handleLogout } from './server/auth.js';
+import { authenticate, handleRegister, handleLogin, handleLogout, verifyDevSecret } from './server/auth.js';
 import { handleStartSession, handleEndSession, handleRefreshToken } from './server/sessions.js';
 import { handleMarkAttendance } from './server/attendance.js';
 import { logSuspiciousCapture, securityMiddleware, triggerSecurityIncident } from './server/security.js';
@@ -69,6 +69,7 @@ async function startServer() {
   app.post('/api/login', handleLogin);
   app.post('/api/logout', handleLogout);
   app.get('/api/me', authenticate, (req: any, res) => res.json(req.user));
+  app.post('/api/admin/verify-secret', authenticate, verifyDevSecret);
 
   // Multi-Collection User Aggregator (Security Optimized)
   const getUsersMap = async () => {

@@ -73,7 +73,7 @@ export const handleLogin = async (req: any, res: any) => {
   let collectionName = '';
   
   // Isolated login paths based on role
-  if (role === 'teacher' || role === 'admin') {
+  if (role === 'teacher' || role === 'admin' || role === 'faculty') {
     // Faculty Login: Check both admins and teachers collections
     const [adminSnapshot, teacherSnapshot] = await Promise.all([
       db.collection('admins').where('email', '==', email).get(),
@@ -136,6 +136,18 @@ export const handleLogin = async (req: any, res: any) => {
     maxAge: 24 * 60 * 60 * 1000 
   });
   res.json({ id: user.id, username: user.username, email: user.email, role: user.role, fullName: user.full_name });
+};
+
+export const verifyDevSecret = async (req: any, res: any) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+  const { secret } = req.body;
+  if (secret === process.env.DEV_PORTAL_KEY) {
+    await logEvent(req.user.id, 'DEV_PORTAL_UNLOCK', 'Admin successfully unlocked developer console', req);
+    res.json({ success: true });
+  } else {
+    await logEvent(req.user.id, 'DEV_PORTAL_UNLOCK_FAILED', 'Admin failed developer console unlock attempt', req);
+    res.status(401).json({ error: 'Invalid secure key' });
+  }
 };
 
 export const handleLogout = (req: any, res: any) => {

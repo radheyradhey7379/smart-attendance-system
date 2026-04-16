@@ -40,7 +40,7 @@ export const AuthPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
     setSuccess('');
 
     const endpoint = isLogin ? '/api/login' : '/api/register';
-    const loginRole = role === 'admin' ? 'teacher' : 'student'; // Map UI 'Teacher' to backend 'teacher' role
+    const loginRole = role === 'admin' ? 'faculty' : 'student'; 
     
     try {
       const res = await apiFetch(endpoint, {
