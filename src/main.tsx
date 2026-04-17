@@ -27,11 +27,20 @@ window.fetch = async (...args) => {
     };
 
     try {
-      // Try Local Network IP first
+      // 1. Try Local Office Network IP
       return await fetchWithTimeout('http://10.42.34.210:3000' + resource);
     } catch (e) {
-      // Fallback to Android Emulator Host IP
-      return await fetchWithTimeout('http://10.0.2.2:3000' + resource);
+      try {
+        // 2. Try Android Emulator Host IP
+        return await fetchWithTimeout('http://10.0.2.2:3000' + resource);
+      } catch (innerE) {
+        // 3. Final Fallback: Production Server
+        const prodUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+        if (prodUrl) {
+            return await fetchWithTimeout(prodUrl + resource);
+        }
+        throw innerE;
+      }
     }
   }
   return originalFetch(resource, config);

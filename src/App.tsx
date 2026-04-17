@@ -31,12 +31,16 @@ export default function App() {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // Set a hard timeout for initialization to prevent permanent white screen
+      const timeoutId = setTimeout(() => {
+        if (loading) setLoading(false);
+      }, 5000);
+
       try {
         const res = await apiFetch('/api/me');
         if (res.ok) {
           const data = await res.json();
           setUser(data);
-          // If admin was previously unlocked, keep them there
           if (data.role === 'admin' && sessionStorage.getItem('dev_unlocked') === 'true') {
               setIsDevUnlocked(true);
           }
@@ -44,6 +48,7 @@ export default function App() {
       } catch (err) {
         console.error('Auth check failed');
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
       }
     };

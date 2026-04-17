@@ -213,13 +213,13 @@ async function startServer() {
   });
 
   // Serve Frontend Production Build
-  const __dirname = path.resolve();
-  app.use(express.static(path.join(__dirname, 'dist')));
+  const distPath = path.join(process.cwd(), 'dist');
+  app.use(express.static(distPath));
 
   // Fallback for React Router
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    res.sendFile(path.join(distPath, 'index.html'));
   });
 
   app.listen(PORT, '0.0.0.0', () => {
