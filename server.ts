@@ -6,7 +6,7 @@ import rateLimit from 'express-rate-limit';
 import db, { initDb } from './server/db.js';
 import { seedTeachers } from './server/teachers.js';
 import { authenticate, handleRegister, handleLogin, handleLogout, verifyDevSecret } from './server/auth.js';
-import { handleStartSession, handleEndSession, handleRefreshToken } from './server/sessions.js';
+import { handleStartSession, handleEndSession, handleRefreshToken, handleGetSessionTimeline } from './server/sessions.js';
 import { handleMarkAttendance } from './server/attendance.js';
 import { logSuspiciousCapture, securityMiddleware, triggerSecurityIncident, checkVulnerability } from './server/security.js';
 
@@ -91,9 +91,24 @@ async function startServer() {
     const q = await db.collection('sessions').where('is_active', '==', 1).orderBy('created_at', 'desc').limit(1).get();
     res.json({ active: !q.empty });
   });
+
+  app.get('/api/active-session-details', authenticate, async (req: any, res) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
+    const q = await db.collection('sessions').where('is_active', '==', 1).orderBy('created_at', 'desc').limit(1).get();
+    if (q.empty) return res.json({ active: false });
+    const doc = q.docs[0];
+    const data = doc.data();
+    res.json({ 
+        active: true, 
+        id: doc.id, 
+        token: data.token, 
+        createdAt: data.created_at?.toDate ? data.created_at.toDate().toISOString() : new Date(data.created_at).toISOString() 
+    });
+  });
   app.post('/api/sessions', authenticate, handleStartSession);
   app.post('/api/sessions/:id/end', authenticate, handleEndSession);
   app.get('/api/sessions/:sessionId/refresh', authenticate, handleRefreshToken);
+  app.get('/api/admin/session-timeline/:sessionId', authenticate, handleGetSessionTimeline);
   
   // Attendance
   app.post('/api/mark-attendance', authenticate, handleMarkAttendance);

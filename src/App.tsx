@@ -1,9 +1,13 @@
+import React, { useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import { AuthPage } from './components/Auth/AuthPage.js';
 import { ProfessorPortal } from './components/Admin/ProfessorPortal.js';
 import { SecureKeyModal } from './components/Admin/SecureKeyModal.js';
-const DeveloperConsole = React.lazy(() => import('./components/Admin/DeveloperConsole.js'));
 import { StudentDashboard } from './components/Student/StudentDashboard.js';
+import { ErrorBoundary } from './components/Common/ErrorBoundary.js';
 import { apiFetch } from './lib/api.js';
+
+const DeveloperConsole = React.lazy(() => import('./components/Admin/DeveloperConsole.js'));
 
 interface User {
   id: number;

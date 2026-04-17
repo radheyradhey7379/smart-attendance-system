@@ -29,15 +29,46 @@ interface AttendanceRecord {
 }
 
 export const ProfessorPortal = ({ user, onLogout, onSecretTrigger }: { user: User, onLogout: () => void, onSecretTrigger?: () => void }) => {
-  const [session, setSession] = useState<{ id: number, token: string } | null>(null);
+  const [session, setSession] = useState<{ id: number, token: string, createdAt: string } | null>(null);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [timeline, setTimeline] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(15);
+  const [sessionAge, setSessionAge] = useState(0);
   const [lastKnownLocation, setLastKnownLocation] = useState<{lat: number, lon: number} | null>(null);
   const [isFullscreenQR, setIsFullscreenQR] = useState(false);
   const [view, setView] = useState<'attendance' | 'timeline'>('attendance');
   const [secretCounter, setSecretCounter] = useState(0);
+
+  // Recover Active Session
+  useEffect(() => {
+    const recover = async () => {
+        try {
+            const res = await apiFetch('/api/active-session-details');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.active) {
+                    setSession({ id: data.id, token: data.token, createdAt: data.createdAt });
+                }
+            }
+        } catch (e) {}
+    };
+    recover();
+  }, []);
+
+  // Session-wide Age Timer
+  useEffect(() => {
+    if (session) {
+        const updateAge = () => {
+            const start = new Date(session.createdAt).getTime();
+            const age = Math.floor((Date.now() - start) / 1000);
+            setSessionAge(age);
+        };
+        updateAge();
+        const interval = setInterval(updateAge, 1000);
+        return () => clearInterval(interval);
+    }
+  }, [session]);
 
   const handleSecretClick = () => {
     if (!onSecretTrigger) return;
@@ -219,11 +250,41 @@ export const ProfessorPortal = ({ user, onLogout, onSecretTrigger }: { user: Use
                     <img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${session.token}`} alt="QR" className="w-56 h-56" />
                     <div className="absolute top-2 right-2 bg-indigo-600 text-white text-[8px] px-2 py-1 rounded-full font-bold uppercase animate-pulse">Live QR Active</div>
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-center gap-2 text-indigo-600 font-bold bg-indigo-50 py-2 rounded-xl">
-                        <Clock size={16} /><span className="text-sm">Refresh: {timeLeft}s</span>
+                  
+                  <div className="grid grid-cols-1 gap-3">
+                    <div className="flex items-center justify-between px-6 py-3 bg-gray-50 rounded-2xl border border-gray-100">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-2 h-2 rounded-full ${sessionAge < 600 ? 'bg-green-500 animate-pulse' : sessionAge < 900 ? 'bg-amber-500' : 'bg-red-500'}`} />
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Session Age</span>
+                        </div>
+                        <span className="text-sm font-black text-gray-900 font-mono">
+                            {Math.floor(sessionAge / 60)}m {sessionAge % 60}s
+                        </span>
                     </div>
-                    <button onClick={endClass} className="w-full bg-red-50 text-red-600 p-3 rounded-xl text-xs font-bold uppercase tracking-widest shadow-sm">End Session</button>
+
+                    <div className="flex items-center justify-between px-6 py-3 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+                        <div className="flex items-center gap-3 text-indigo-600">
+                            <Clock size={16} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">QR Refresh</span>
+                        </div>
+                        <span className="text-sm font-bold text-indigo-600 font-mono">{timeLeft}s</span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white border border-gray-100 shadow-sm flex flex-col gap-2">
+                        <div className="flex justify-between text-[8px] font-black uppercase tracking-[0.2em] text-gray-300">
+                            <span>Started</span>
+                            <span>{sessionAge < 600 ? 'Present Window' : sessionAge < 900 ? 'Late Window' : 'Expired'}</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <motion.div 
+                                className={`h-full ${sessionAge < 600 ? 'bg-green-500' : sessionAge < 900 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min(100, (sessionAge / 900) * 100)}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    <button onClick={endClass} className="w-full bg-red-50 text-red-600 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm hover:bg-red-100 transition-colors">Terminate Session</button>
                   </div>
                 </div>
             )}

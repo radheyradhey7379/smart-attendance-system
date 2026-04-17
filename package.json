@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
+    "frontend": "vite",
     "start": "tsx server.ts",
     "build": "vite build",
     "preview": "vite preview",

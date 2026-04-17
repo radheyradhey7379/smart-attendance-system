@@ -63,9 +63,10 @@ export const handleStartSession = async (req: any, res: any) => {
   });
   
   const signedToken = generateSignedToken(docRef.id, token, req.user.id, req.user.email);
+  const createdAt = new Date().toISOString(); 
 
   await logEvent(req.user.id, 'SESSION_START', `Professor started class session ${docRef.id} for ${branch} bin ${subBranch}`, req);
-  res.json({ id: docRef.id, token: signedToken });
+  res.json({ id: docRef.id, token: signedToken, createdAt });
 };
 
 export const handleRefreshToken = async (req: any, res: any) => {
@@ -90,4 +91,56 @@ export const handleEndSession = async (req: any, res: any) => {
   });
   await logEvent(req.user.id, 'SESSION_END', `Professor manually ended class session ${req.params.id}`, req);
   res.json({ success: true });
+};
+
+export const handleGetSessionTimeline = async (req: any, res: any) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
+    const { sessionId } = req.params;
+    
+    try {
+        // Fetch Attendance Events
+        const attQ = await db.collection('attendance')
+            .where('session_id', '==', sessionId)
+            .orderBy('timestamp', 'asc')
+            .get();
+            
+        // Fetch Suspicious Events
+        const susQ = await db.collection('suspicious_captures')
+            .where('session_id', '==', sessionId)
+            .orderBy('timestamp', 'asc')
+            .get();
+
+        const events: any[] = [];
+        
+        attQ.docs.forEach(doc => {
+            const d = doc.data();
+            events.push({
+                type: 'ATTENDANCE',
+                id: doc.id,
+                timestamp: d.timestamp,
+                details: `Attendance marked for ${d.student_id}`,
+                status: d.status,
+                is_suspicious: d.is_suspicious
+            });
+        });
+
+        susQ.docs.forEach(doc => {
+            const d = doc.data();
+            events.push({
+                type: 'SUSPICIOUS',
+                id: doc.id,
+                timestamp: d.timestamp,
+                details: `Suspicious activity: ${d.reason}`,
+                reason: d.reason
+            });
+        });
+
+        // Sort by timestamp
+        events.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+
+        res.json(events);
+    } catch (err) {
+        console.error('Timeline fetch error:', err);
+        res.status(500).json({ error: 'Failed to fetch timeline' });
+    }
 };
