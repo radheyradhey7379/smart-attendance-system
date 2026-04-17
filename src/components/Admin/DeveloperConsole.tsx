@@ -5,8 +5,8 @@ import {
   MapPin, Clock, XCircle, Loader2, AlertTriangle, History, 
   Settings, Terminal, Database, Ban
 } from 'lucide-react';
-import { apiFetch } from '../../lib/api.js';
-import { SecurityGuard } from '../Common/SecurityGuard.js';
+import { apiFetch } from '../../lib/api';
+import { SecurityGuard } from '../Common/SecurityGuard';
 
 interface User {
   id: number;

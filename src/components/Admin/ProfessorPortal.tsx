@@ -4,8 +4,8 @@ import {
   QrCode, Clock, XCircle, Users, RefreshCw, MapPin, 
   School, CheckCircle2, Loader2, History, User
 } from 'lucide-react';
-import { apiFetch } from '../../lib/api.js';
-import { SecurityGuard } from '../Common/SecurityGuard.js';
+import { apiFetch } from '../../lib/api';
+import { SecurityGuard } from '../Common/SecurityGuard';
 
 interface User {
   id: number;

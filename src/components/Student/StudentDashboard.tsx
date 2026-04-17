@@ -5,7 +5,7 @@ import {
   CheckCircle2, XCircle, MapPin, Smartphone, ShieldAlert
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { apiFetch } from '../../lib/api.js';
+import { apiFetch } from '../../lib/api';
 
 interface User {
   id: number;

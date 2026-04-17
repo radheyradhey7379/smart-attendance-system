@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ShieldCheck, ShieldAlert, X, Loader2, Command, Lock } from 'lucide-react';
-import { apiFetch } from '../../lib/api.js';
+import { apiFetch } from '../../lib/api';
 
 interface SecureKeyModalProps {
   onSuccess: () => void;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ShieldCheck, LogIn, UserPlus, ShieldAlert, CheckCircle2, Loader2, School } from 'lucide-react';
-import { apiFetch } from '../../lib/api.js';
+import { apiFetch } from '../../lib/api';
 
 interface User {
   id: number;

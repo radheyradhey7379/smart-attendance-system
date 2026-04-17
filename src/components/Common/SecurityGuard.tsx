@@ -4,7 +4,7 @@ import {
   ShieldCheck, ShieldAlert, Loader2, MapPin, 
   MapPinOff, Globe, Lock, AlertTriangle
 } from 'lucide-react';
-import { apiFetch } from '../../lib/api.js';
+import { apiFetch } from '../../lib/api';
 
 interface SecurityGuardProps {
   children: React.ReactNode;
