@@ -214,12 +214,36 @@ async function startServer() {
 
   // Serve Frontend Production Build
   const distPath = path.join(process.cwd(), 'dist');
+  const indexHtmlPath = path.join(distPath, 'index.html');
+
+  // Build Detection: Help the user if they've forgotten to build
+  app.use(async (req, res, next) => {
+    if (req.path.startsWith('/api/')) return next();
+    
+    const fs = (await import('fs')).default;
+    if (!fs.existsSync(indexHtmlPath)) {
+        return res.status(200).send(`
+            <div style="font-family: sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; background: #f8fafc;">
+                <div style="background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-width: 400px; text-align: center;">
+                    <h1 style="color: #ef4444; margin-bottom: 1rem;">Setup Required</h1>
+                    <p style="color: #64748b; margin-bottom: 1.5rem;">The application is running in <b>Server Mode</b>, but you haven't built the frontend yet.</p>
+                    <div style="background: #f1f5f9; padding: 1rem; border-radius: 0.5rem; font-family: monospace; font-size: 0.875rem; color: #0f172a; margin-bottom: 1.5rem;">
+                        npm run build
+                    </div>
+                    <p style="font-size: 0.75rem; color: #94a3b8;">Run the command above to activate the Login Page.</p>
+                </div>
+            </div>
+        `);
+    }
+    next();
+  });
+
   app.use(express.static(distPath));
 
   // Fallback for React Router
   app.get('*', (req, res) => {
     if (req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' });
-    res.sendFile(path.join(distPath, 'index.html'));
+    res.sendFile(indexHtmlPath);
   });
 
   app.listen(PORT, '0.0.0.0', () => {
