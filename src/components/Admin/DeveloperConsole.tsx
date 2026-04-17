@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'motion';
 import { 
   ShieldAlert, ShieldCheck, Activity, Heart, Activity as LogsIcon, 
   MapPin, Clock, XCircle, Loader2, AlertTriangle, History, 
@@ -9,7 +9,7 @@ import { apiFetch } from '../../lib/api';
 import { SecurityGuard } from '../Common/SecurityGuard';
 
 interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
   role: 'admin' | 'teacher' | 'student';

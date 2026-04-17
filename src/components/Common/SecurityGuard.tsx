@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'motion';
 import { 
   ShieldCheck, ShieldAlert, Loader2, MapPin, 
   MapPinOff, Globe, Lock, AlertTriangle

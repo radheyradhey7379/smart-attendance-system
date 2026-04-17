@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'motion';
 import { ShieldCheck, LogIn, UserPlus, ShieldAlert, CheckCircle2, Loader2, School } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 
 interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
   role: 'admin' | 'teacher' | 'student';

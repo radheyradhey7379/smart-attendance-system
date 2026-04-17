@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'motion';
 import { 
   School, LogOut, Camera, ShieldCheck, Loader2, 
   CheckCircle2, XCircle, MapPin, Smartphone, ShieldAlert
@@ -8,7 +8,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { apiFetch } from '../../lib/api';
 
 interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
   role: 'admin' | 'teacher' | 'student';

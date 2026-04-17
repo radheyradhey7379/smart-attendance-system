@@ -8,7 +8,7 @@ import { apiFetch } from '../../lib/api';
 import { SecurityGuard } from '../Common/SecurityGuard';
 
 interface User {
-  id: number;
+  id: string;
   username: string;
   email: string;
   role: 'admin' | 'teacher' | 'student';
