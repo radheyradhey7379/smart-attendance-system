@@ -48,7 +48,14 @@ export const handleStartSession = async (req: any, res: any) => {
   if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
   const { lat, lon, branch, subBranch, className, section, subject } = req.body;
   const token = crypto.randomBytes(16).toString('hex');
-  const session_code = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Use subject as code if provided, normalized to 6 chars or taken as is
+  // The user wants it to be "like subject code" - we'll normalize it
+  let session_code = Math.floor(100000 + Math.random() * 900000).toString();
+  if (subject && subject.length >= 3) {
+    // Normalize: Uppercase, alphanumeric only, max 8 chars
+    session_code = subject.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  }
 
   const docRef = await db.collection('sessions').add({
     token,

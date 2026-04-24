@@ -293,7 +293,7 @@ export const ProfessorPortal = ({ user, onLogout, onSecretTrigger }: { user: Use
 
                   <div className="bg-indigo-600 p-6 rounded-[30px] text-white shadow-xl shadow-indigo-100">
                     <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-60 mb-2">Access Code</p>
-                    <h3 className="text-4xl font-black tracking-[0.5em] italic ml-4">{session.session_code}</h3>
+                    <h3 className="text-4xl font-black tracking-[0.2em] italic">{session.session_code}</h3>
                     <p className="mt-4 text-[9px] font-bold uppercase tracking-widest opacity-80">{session.subject} • {session.branch} - {session.section}</p>
                   </div>
 
@@ -338,9 +338,13 @@ export const ProfessorPortal = ({ user, onLogout, onSecretTrigger }: { user: Use
           </div>
 
           <div className="lg:col-span-8 space-y-6">
-            <div className="flex gap-4 p-1 bg-gray-100 rounded-2xl w-fit">
+            <div className="flex gap-4 p-1 bg-gray-100 rounded-2xl w-full overflow-x-auto scrollbar-hide no-scrollbar flex-nowrap">
               {['attendance', 'timeline', 'history'].map(v => (
-                <button key={v} onClick={() => setView(v as any)} className={`px-6 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${view === v ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}>
+                <button
+                  key={v}
+                  onClick={() => setView(v as any)}
+                  className={`px-6 py-2 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all flex-shrink-0 ${view === v ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                >
                   {v}
                 </button>
               ))}
