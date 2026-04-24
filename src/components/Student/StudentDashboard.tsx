@@ -8,6 +8,7 @@ import {
     Zap, Award, Key, AlertTriangle, ArrowRight
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
+import { getDeviceFingerprint } from '../../lib/security';
 
 interface AppSystemUser {
     id: string;
@@ -19,6 +20,8 @@ interface AppSystemUser {
 
 export default function StudentDashboard({ user, onLogout }: { user: AppSystemUser, onLogout: () => void }) {
     const [scanning, setScanning] = useState(false);
+    const [challenge, setChallenge] = useState<'blink' | 'smile' | 'none'>('none');
+    const [challengeMet, setChallengeMet] = useState(false);
     const [sessionCode, setSessionCode] = useState('');
     const [stats, setStats] = useState({ streak: 0, score: 0 });
     const [status, setStatus] = useState<{ type: 'success' | 'error' | 'idle', message: string }>({ type: 'idle', message: '' });
@@ -28,6 +31,18 @@ export default function StudentDashboard({ user, onLogout }: { user: AppSystemUs
     const scannerRef = useRef<any>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    // V2.0 Behavioral Monitoring: Detect Tab Switching
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.hidden && (scanning || loading)) {
+                setStatus({ type: 'error', message: 'Security Alert: Background detected. Transaction aborted.' });
+                cancelScanner();
+            }
+        };
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+    }, [scanning, loading]);
 
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -53,16 +68,21 @@ export default function StudentDashboard({ user, onLogout }: { user: AppSystemUs
     };
 
     const startScanner = async () => {
-        if (sessionCode.length !== 6) {
-            alert('Please enter a valid 6-digit session code.');
+        if (sessionCode.length < 3) {
+            alert('Please enter a valid session code.');
             return;
         }
         setScanning(true);
+        // Randomize challenge
+        const challenges: ('blink' | 'smile')[] = ['blink', 'smile'];
+        setChallenge(challenges[Math.floor(Math.random() * challenges.length)]);
     };
 
     const cancelScanner = () => {
         setScanning(false);
         setFaceSnapshot(null);
+        setChallenge('none');
+        setChallengeMet(false);
         if (scannerRef.current) { try { scannerRef.current.stop(); } catch (e) { } }
         const stream = videoRef.current?.srcObject as MediaStream;
         stream?.getTracks().forEach(t => t.stop());
@@ -72,6 +92,7 @@ export default function StudentDashboard({ user, onLogout }: { user: AppSystemUs
         const photo = capturePhoto();
         if (photo) {
             setFaceSnapshot(photo);
+            setChallengeMet(true);
             const stream = videoRef.current?.srcObject as MediaStream;
             stream?.getTracks().forEach(t => t.stop());
 
@@ -95,25 +116,31 @@ export default function StudentDashboard({ user, onLogout }: { user: AppSystemUs
         setLoading(true);
         if (scannerRef.current) { try { await scannerRef.current.stop(); } catch (e) { } }
 
+        const deviceId = await getDeviceFingerprint();
+
         navigator.geolocation.getCurrentPosition(async (pos) => {
             try {
                 const res = await apiFetch('/api/mark-attendance', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Device-ID': deviceId
+                    },
                     body: JSON.stringify({
                         token: decodedText,
                         sessionCode,
                         lat: pos.coords.latitude,
                         lon: pos.coords.longitude,
                         faceSnapshot,
-                        deviceFingerprint: navigator.userAgent + screen.width + screen.height
+                        deviceId,
+                        livenessVerified: true
                     }),
                 });
                 const data = await res.json();
                 if (res.ok) setStatus({ type: 'success', message: 'Identity confirmed. Attendance logged.' });
                 else setStatus({ type: 'error', message: data.error || 'Verification rejected.' });
             } catch (err) { setStatus({ type: 'error', message: 'Encrypted tunnel break.' }); }
-            finally { setLoading(false); setScanning(false); setFaceSnapshot(null); }
+            finally { setLoading(false); setScanning(false); setFaceSnapshot(null); setChallenge('none'); }
         }, () => {
             setStatus({ type: 'error', message: 'GPS authorization required.' });
             setLoading(false);
@@ -325,6 +352,25 @@ export default function StudentDashboard({ user, onLogout }: { user: AppSystemUs
 
                                 <div className="aspect-square bg-slate-100 rounded-[56px] overflow-hidden relative border-4 border-slate-50 shadow-inner group">
                                     <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover -scale-x-100" />
+
+                                    {/* V2.0 Challenge Overlay */}
+                                    <AnimatePresence>
+                                        {challenge !== 'none' && !challengeMet && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                                                className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex flex-col items-center gap-4 z-20"
+                                            >
+                                                <div className="bg-indigo-600/90 backdrop-blur-md px-6 py-4 rounded-[32px] border border-white/20 shadow-2xl flex flex-col items-center gap-2">
+                                                    <Sparkles className="text-indigo-200 animate-pulse" size={24} />
+                                                    <p className="text-white font-black uppercase text-xs tracking-[0.2em] text-center">
+                                                        Liveness Check:<br />
+                                                        <span className="text-indigo-100 text-lg">{challenge === 'blink' ? 'Blink Slowly' : 'Smile for Camera'}</span>
+                                                    </p>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+
                                     <div className="absolute inset-0 bg-indigo-500/5" />
                                     <div className="absolute inset-[15%] border-2 border-dashed border-white/40 rounded-[48px] animate-pulse" />
                                     <div className="absolute top-1/2 left-0 w-full h-[1px] bg-white/20" />

@@ -3,7 +3,8 @@ import { User } from '../../lib/types';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   QrCode, Clock, XCircle, Users, RefreshCw, MapPin,
-  School, CheckCircle2, Loader2, History, User as UserIcon, Calendar
+  School, CheckCircle2, Loader2, History, User as UserIcon, Calendar,
+  ShieldAlert
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { SecurityGuard } from '../Common/SecurityGuard';
@@ -372,7 +373,17 @@ export const ProfessorPortal = ({ user, onLogout, onSecretTrigger }: { user: Use
                             </div>
                           </div>
                           <div className="text-right flex flex-col items-end gap-1">
-                            <span className="px-3 py-1 bg-green-50 text-green-600 rounded-lg text-[9px] font-bold uppercase">{record.status}</span>
+                            <div className="flex items-center gap-2">
+                              {record.is_suspicious === 1 && (
+                                <div className="p-1 bg-red-50 text-red-600 rounded-md animate-pulse" title={`FLAGGED: ${record.rejection_reason}`}>
+                                  <ShieldAlert size={14} />
+                                </div>
+                              )}
+                              <span className={`px-3 py-1 rounded-lg text-[9px] font-bold uppercase ${record.is_suspicious === 1 ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-600'
+                                }`}>
+                                {record.status}
+                              </span>
+                            </div>
                             <span className="text-[9px] text-gray-400 font-medium">{new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                           </div>
                         </div>

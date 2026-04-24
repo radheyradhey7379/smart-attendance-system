@@ -4,6 +4,8 @@ import { motion } from 'motion/react';
 import { ShieldCheck, LogIn, UserPlus, ShieldAlert, CheckCircle2, Loader2, School } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 
+import { getDeviceFingerprint } from '../../lib/security';
+
 interface AppSystemUser {
   id: string;
   username: string;
@@ -41,13 +43,17 @@ export const AuthPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
     setSuccess('');
 
     const endpoint = isLogin ? '/api/login' : '/api/register';
-    const loginRole = role === 'admin' ? 'faculty' : 'student'; 
-    
+    const loginRole = role === 'admin' ? 'faculty' : 'student';
+
     try {
+      const deviceId = await getDeviceFingerprint();
       const res = await apiFetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, role: loginRole }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-ID': deviceId
+        },
+        body: JSON.stringify({ ...formData, role: loginRole, deviceId }),
       });
       const data = await res.json();
       if (res.ok) {
