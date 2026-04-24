@@ -294,8 +294,10 @@ export const ProfessorPortal = ({ user, onLogout, onSecretTrigger }: { user: Use
 
                   <div className="bg-indigo-600 p-6 rounded-[30px] text-white shadow-xl shadow-indigo-100">
                     <p className="text-[10px] font-bold uppercase tracking-[0.3em] opacity-60 mb-2">Access Code</p>
-                    <h3 className="text-4xl font-black tracking-[0.2em] italic">{session.session_code}</h3>
-                    <p className="mt-4 text-[9px] font-bold uppercase tracking-widest opacity-80">{session.subject} • {session.branch} - {session.section}</p>
+                    <h3 className="text-4xl font-black tracking-[0.2em] italic">{session.session_code || '------'}</h3>
+                    <p className="mt-4 text-[9px] font-bold uppercase tracking-widest opacity-80">
+                      {session.subject || 'General'} • {session.branch || 'TBD'} - {session.section || 'TBD'}
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">

@@ -49,12 +49,15 @@ export const handleStartSession = async (req: any, res: any) => {
   const { lat, lon, branch, subBranch, className, section, subject } = req.body;
   const token = crypto.randomBytes(16).toString('hex');
 
-  // Use subject as code if provided, normalized to 6 chars or taken as is
-  // The user wants it to be "like subject code" - we'll normalize it
+  // V2.0 Hardened Code Generation: Deterministic Subject Code with Numeric Fallback
   let session_code = Math.floor(100000 + Math.random() * 900000).toString();
-  if (subject && subject.length >= 3) {
-    // Normalize: Uppercase, alphanumeric only, max 8 chars
-    session_code = subject.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+  if (subject && subject.trim().length >= 2) {
+    const normalized = subject.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+    // Only use normalized subject if it yields a valid, non-empty identifier
+    if (normalized.length >= 2) {
+      session_code = normalized;
+    }
   }
 
   const docRef = await db.collection('sessions').add({
