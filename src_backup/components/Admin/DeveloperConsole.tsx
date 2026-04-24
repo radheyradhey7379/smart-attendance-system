@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User } from '../../lib/types';
 import { 
   ShieldAlert, ShieldCheck, Activity, Heart, Activity as LogsIcon, 
   MapPin, Clock, XCircle, Loader2, AlertTriangle, History, 
-  Settings, Terminal, Database, Ban, User as UserIcon
+  Settings, Terminal, Database, Ban
 } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { SecurityGuard } from '../Common/SecurityGuard';

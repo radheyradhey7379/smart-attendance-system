@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
-import { AuthPage } from './components/Auth/AuthPage';
-import { ProfessorPortal } from './components/Admin/ProfessorPortal';
-import { SecureKeyModal } from './components/Admin/SecureKeyModal';
-import { ErrorBoundary } from './components/Common/ErrorBoundary';
+import AuthPage from './components/Auth/AuthPage';
+import ProfessorPortal from './components/Admin/ProfessorPortal';
+import SecureKeyModal from './components/Admin/SecureKeyModal';
+import ErrorBoundary from './components/Common/ErrorBoundary';
 import { apiFetch } from './lib/api';
 
 // LAZY LOADING - Simplified for build stability
@@ -62,11 +62,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#4f46e5' }}>
-        <div style={{ padding: '20px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '30px', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>
-          <Loader2 className="animate-spin text-white" size={48} />
-        </div>
-        <p style={{ marginTop: '20px', color: 'white', fontWeight: 'bold', letterSpacing: '0.1em', fontSize: '12px', textTransform: 'uppercase' }}>Initializing Security...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb' }}>
+        <Loader2 className="animate-spin" size={48} color="#4f46e5" />
       </div>
     );
   }
@@ -89,15 +86,12 @@ export default function App() {
     );
   } else if (user.role === 'teacher') {
     mainContent = <ProfessorPortal user={user} onLogout={handleLogout} />;
-  } else if (user.role === 'student') {
+  } else {
     mainContent = (
-      <React.Suspense fallback={<div className="flex items-center justify-center p-20"><Loader2 className="animate-spin text-indigo-600" size={32} /></div>}>
+      <React.Suspense fallback={<div style={{ padding: '80px', textAlign: 'center' }}><Loader2 className="animate-spin" /></div>}>
         <StudentDashboard user={user} onLogout={handleLogout} />
       </React.Suspense>
     );
-  } else {
-    // Unknown role or corrupted user data - logout to be safe
-    mainContent = <div className="p-20 text-center"><p className="text-red-500 font-bold">Error: Unknown User Role</p><button onClick={handleLogout} className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-xl">Back to Login</button></div>;
   }
 
   return (

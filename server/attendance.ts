@@ -8,7 +8,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key';
 
 export const handleMarkAttendance = async (req: any, res: any) => {
-  const { token: encryptedToken, lat, lon, deviceFingerprint, faceSnapshot } = req.body;
+  const { token: encryptedToken, sessionCode, lat, lon, deviceFingerprint, faceSnapshot } = req.body;
   const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
   let payload;
@@ -16,7 +16,7 @@ export const handleMarkAttendance = async (req: any, res: any) => {
     payload = decryptPayload(encryptedToken);
   } catch (err) {
     await logEvent(req.user.id, 'ATTENDANCE_FAIL', 'Tampered, invalid or unreadable QR code', req);
-    
+
     if (trackAttempt(String(ip), 3, 5 * 60 * 1000)) {
       await triggerSecurityIncident('QR_TAMPERING', 'Multiple invalid QR scan attempts', 'critical', req, req.user.id);
     }
@@ -27,10 +27,16 @@ export const handleMarkAttendance = async (req: any, res: any) => {
 
   const sessionDoc = await db.collection('sessions').doc(sessionId).get();
   const session = sessionDoc.exists ? sessionDoc.data() : null;
-  
+
   if (!session || session.token !== token || session.is_active !== 1) {
     await logEvent(req.user.id, 'ATTENDANCE_FAIL', 'QR token mismatch or session inactive', req);
     return res.status(400).json({ error: 'Invalid or expired QR code' });
+  }
+
+  // Security: Check Session Code
+  if (session.session_code !== sessionCode) {
+    await logEvent(req.user.id, 'ATTENDANCE_FAIL', `Invalid session code provided: ${sessionCode}`, req);
+    return res.status(403).json({ error: 'Invalid classroom access code.' });
   }
 
   const now = Date.now();
@@ -42,7 +48,7 @@ export const handleMarkAttendance = async (req: any, res: any) => {
   const createdAtMs = session.created_at?.toMillis ? session.created_at.toMillis() : new Date(session.created_at).getTime();
   const sessionAgeMs = Date.now() - createdAtMs;
   const sessionAgeMins = sessionAgeMs / (1000 * 60);
-  
+
   let attendanceStatus = 'Present';
   if (sessionAgeMins > 15) {
     return res.status(400).json({ error: 'Attendance window closed for this session' });
@@ -70,18 +76,28 @@ export const handleMarkAttendance = async (req: any, res: any) => {
   // Security: Students must exist in the 'students' collection
   const studentDoc = await db.collection('students').doc(req.user.id).get();
   if (!studentDoc.exists) {
-      await logEvent(req.user.id, 'ATTENDANCE_FAIL', 'Non-student account attempted attendance', req);
-      return res.status(403).json({ error: 'Only registered students can mark attendance.' });
+    await logEvent(req.user.id, 'ATTENDANCE_FAIL', 'Non-student account attempted attendance', req);
+    return res.status(403).json({ error: 'Only registered students can mark attendance.' });
   }
-  
+
   const student = studentDoc.data() as any;
-  
-  // Branch & Sub-Branch Validation
-  if (session.branch && student.branch !== session.branch) {
-    return res.status(403).json({ error: `This session is for ${session.branch} branch students only.` });
+
+  // Robust Branch, Group (Section/Batch) & Year (Class/Session) Validation
+  const sBranch = (session.branch || '').trim().toLowerCase();
+  const uBranch = (student.branch || '').trim().toLowerCase();
+  const sYear = (session.class || '').trim().toLowerCase();
+  const uYear = (student.session || '').trim().toLowerCase();
+  const sGroup = (session.section || '').trim().toLowerCase();
+  const uGroup = (student.sub_branch || '').trim().toLowerCase();
+
+  if (sBranch && uBranch !== sBranch) {
+    return res.status(403).json({ error: `This session is for ${session.branch} branch only.` });
   }
-  if (session.sub_branch && student.sub_branch !== session.sub_branch) {
-    return res.status(403).json({ error: `This session is for Batch ${session.sub_branch} only.` });
+  if (sYear && uYear !== sYear) {
+    return res.status(403).json({ error: `This session is for ${session.class} students only.` });
+  }
+  if (sGroup && uGroup !== sGroup) {
+    return res.status(403).json({ error: `This session is for Section/Batch ${session.section} only.` });
   }
 
   if (student.device_id && student.device_id !== deviceFingerprint) {
@@ -96,7 +112,7 @@ export const handleMarkAttendance = async (req: any, res: any) => {
     .where('student_id', '==', req.user.id)
     .where('session_id', '==', sessionId)
     .get();
-    
+
   if (!existingQ.empty) return res.status(400).json({ error: 'Attendance already marked' });
 
   if (!isSuspicious) {
@@ -104,7 +120,7 @@ export const handleMarkAttendance = async (req: any, res: any) => {
       .where('session_id', '==', sessionId)
       .where('ip_address', '==', String(ip))
       .get();
-      
+
     const ipStudents = new Set(ipQ.docs.map(d => d.data().student_id));
     if (ipStudents.size >= 3) {
       isSuspicious = 1;
@@ -115,7 +131,7 @@ export const handleMarkAttendance = async (req: any, res: any) => {
       .where('session_id', '==', sessionId)
       .where('device_id', '==', deviceFingerprint)
       .get();
-      
+
     const deviceStudents = new Set(deviceQ.docs.map(d => d.data().student_id));
     if (deviceStudents.size >= 1) {
       isSuspicious = 1;
@@ -140,10 +156,10 @@ export const handleMarkAttendance = async (req: any, res: any) => {
   });
 
   await logEvent(req.user.id, isSuspicious ? 'ATTENDANCE_SUSPICIOUS' : 'ATTENDANCE_SUCCESS', isSuspicious ? `Suspicious attendance: ${rejectionReason}` : 'Attendance marked successfully', req);
-  
-  res.json({ 
-    success: true, 
+
+  res.json({
+    success: true,
     message: isSuspicious ? `Attendance marked but flagged: ${rejectionReason}` : 'Attendance marked successfully!',
-    isSuspicious 
+    isSuspicious
   });
 };

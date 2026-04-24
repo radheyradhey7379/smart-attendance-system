@@ -12,33 +12,48 @@ import { logSuspiciousCapture, securityMiddleware, triggerSecurityIncident, chec
 
 const PORT = process.env.PORT || 3000;
 
+// Centralized User Data Resolver for logs and history
+async function getUsersMap() {
+  const [students, teachers, admins] = await Promise.all([
+    db.collection('students').get(),
+    db.collection('teachers').get(),
+    db.collection('admins').get()
+  ]);
+
+  const map: Record<string, any> = {};
+  students.docs.forEach(d => map[d.id] = { id: d.id, ...d.data(), role: 'student' });
+  teachers.docs.forEach(d => map[d.id] = { id: d.id, ...d.data(), role: 'teacher' });
+  admins.docs.forEach(d => map[d.id] = { id: d.id, ...d.data(), role: 'admin' });
+  return map;
+}
+
 async function startServer() {
   await initDb();
   await seedTeachers();
 
   const app = express();
   app.set('trust proxy', 1);
-  
+
   // Security: Whitelist only your future Firebase Hosting URL
   const whitelist = [
-    'http://localhost:5173', 
+    'http://localhost:5173',
     'http://localhost:3000',
     'http://localhost',      // Android Capacitor
     'https://localhost',     // Android Capacitor (Secured)
     'capacitor://localhost', // iOS Capacitor
-    /\.web\.app$/, 
+    /\.web\.app$/,
     /\.firebaseapp\.com$/
   ];
-  
-  app.use(cors({ 
+
+  app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || whitelist.some(w => typeof w === 'string' ? w === origin : w.test(origin))) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
+      if (!origin || whitelist.some(w => typeof w === 'string' ? w === origin : w.test(origin))) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
     },
-    credentials: true 
+    credentials: true
   }));
 
   app.use(express.json({ limit: '10mb' }));
@@ -51,7 +66,7 @@ async function startServer() {
     max: 100,
     message: { error: 'Security Limit: Too many requests.' }
   });
-  
+
   const authLimiter = rateLimit({
     windowMs: 5 * 60 * 1000,
     max: 10,
@@ -74,11 +89,11 @@ async function startServer() {
   // Multi-Collection User Aggregator (Security Optimized)
   const getUsersMap = async () => {
     const [students, teachers, admins] = await Promise.all([
-        db.collection('students').get(),
-        db.collection('teachers').get(),
-        db.collection('admins').get()
+      db.collection('students').get(),
+      db.collection('teachers').get(),
+      db.collection('admins').get()
     ]);
-    
+
     const map: any = {};
     students.docs.forEach(d => map[d.id] = { id: d.id, ...d.data(), role: 'student' });
     teachers.docs.forEach(d => map[d.id] = { id: d.id, ...d.data(), role: 'teacher' });
@@ -87,29 +102,177 @@ async function startServer() {
   };
 
   // Sessions
-  app.get('/api/active-session', authenticate, async (req: any, res) => {
-    const q = await db.collection('sessions').where('is_active', '==', 1).orderBy('created_at', 'desc').limit(1).get();
-    res.json({ active: !q.empty });
+  // Student Stats: Streak & Score
+  app.get('/api/student/stats', authenticate, async (req: any, res) => {
+    if (req.user.role !== 'student') return res.status(403).json({ error: 'Forbidden' });
+
+    try {
+      const studentDoc = await db.collection('students').doc(req.user.id).get();
+      if (!studentDoc.exists) return res.status(404).json({ error: 'Student Profile Missing' });
+      const student = studentDoc.data() as any;
+
+      // 1. Fetch all attendance records
+      const attendanceQ = await db.collection('attendance')
+        .where('username', '==', req.user.id)
+        .orderBy('timestamp', 'desc')
+        .get();
+
+      // 2. Fetch all sessions for this student's metadata
+      const sessionsQ = await db.collection('sessions')
+        .where('branch', '==', student.branch)
+        .where('class', '==', student.session)
+        .where('section', '==', student.sub_branch)
+        .get();
+
+      const attendedSessions = attendanceQ.docs.map(d => d.data().session_id);
+      const totalSessions = sessionsQ.docs.length;
+
+      // Calculate Score
+      const score = totalSessions > 0 ? Math.round((attendedSessions.length / totalSessions) * 100) : 100;
+
+      // Calculate Streak (Consecutive days)
+      let streak = 0;
+      if (attendanceQ.docs.length > 0) {
+        const uniqueDates = Array.from(new Set(attendanceQ.docs.map(doc => {
+          const ts = doc.data().timestamp;
+          return ts.toDate().toISOString().split('T')[0];
+        })));
+
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+        let currentDate = uniqueDates.includes(today) ? today : (uniqueDates.includes(yesterday) ? yesterday : null);
+
+        if (currentDate) {
+          streak = 1;
+          let idx = uniqueDates.indexOf(currentDate);
+          for (let i = idx + 1; i < uniqueDates.length; i++) {
+            const d1 = new Date(uniqueDates[i - 1]);
+            const d2 = new Date(uniqueDates[i]);
+            const diffDays = Math.round((d1.getTime() - d2.getTime()) / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 1) {
+              streak++;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+
+      res.json({ streak, score });
+    } catch (err) {
+      console.error('Stats Error:', err);
+      res.status(500).json({ error: 'Failed to fetch stats' });
+    }
   });
 
-  app.get('/api/active-session-details', authenticate, async (req: any, res) => {
-    if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
-    const q = await db.collection('sessions').where('is_active', '==', 1).orderBy('created_at', 'desc').limit(1).get();
-    if (q.empty) return res.json({ active: false });
-    const doc = q.docs[0];
-    const data = doc.data();
-    res.json({ 
-        active: true, 
-        id: doc.id, 
-        token: data.token, 
-        createdAt: data.created_at?.toDate ? data.created_at.toDate().toISOString() : new Date(data.created_at).toISOString() 
-    });
+  // Unified Active Session Resolver
+  app.get('/api/active-session', authenticate, async (req: any, res) => {
+    try {
+      const q = await db.collection('sessions').where('is_active', '==', 1).get();
+      if (q.empty) return res.json({ active: false });
+
+      let sessionDoc = q.docs[0];
+
+      // If user is a student, find the session matching their class/branch
+      if (req.user.role === 'student') {
+        const studentDoc = await db.collection('students').doc(req.user.id).get();
+        if (studentDoc.exists) {
+          const student = studentDoc.data() as any;
+          const match = q.docs.find(doc => {
+            const s = doc.data();
+            const sBranch = (s.branch || '').trim().toLowerCase();
+            const uBranch = (student.branch || '').trim().toLowerCase();
+            const sYear = (s.class || '').trim().toLowerCase();
+            const uYear = (student.session || '').trim().toLowerCase();
+            const sSection = (s.section || '').trim().toLowerCase();
+            const uSection = (student.sub_branch || '').trim().toLowerCase();
+
+            return (!sBranch || sBranch === uBranch) &&
+              (!sYear || sYear === uYear) &&
+              (!sSection || sSection === uSection);
+          });
+          if (!match) return res.json({ active: false });
+          sessionDoc = match;
+        }
+      }
+      // If user is a teacher, show the session they created (or latest active)
+      else {
+        const teacherMatch = q.docs.find(d => d.data().admin_id === req.user.id);
+        if (teacherMatch) sessionDoc = teacherMatch;
+      }
+
+      const data = sessionDoc.data();
+      res.json({
+        active: true,
+        session: {
+          id: sessionDoc.id,
+          token: data.token,
+          session_code: data.session_code,
+          subject: data.subject || 'General',
+          branch: data.branch,
+          section: data.section,
+          className: data.class,
+          createdAt: data.created_at?.toDate ? data.created_at.toDate().toISOString() : (data.created_at || new Date().toISOString())
+        }
+      });
+    } catch (e) {
+      console.error('Session Discovery Error:', e);
+      res.status(500).json({ error: 'System synchronization issue' });
+    }
   });
   app.post('/api/sessions', authenticate, handleStartSession);
   app.post('/api/sessions/:id/end', authenticate, handleEndSession);
   app.get('/api/sessions/:sessionId/refresh', authenticate, handleRefreshToken);
   app.get('/api/admin/session-timeline/:sessionId', authenticate, handleGetSessionTimeline);
-  
+
+  // Historical Attendance Retrieval
+  app.get('/api/admin/attendance-history', authenticate, async (req: any, res) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher') return res.status(403).json({ error: 'Forbidden' });
+
+    const { date } = req.query; // YYYY-MM-DD
+    if (!date) return res.status(400).json({ error: 'Date is required' });
+
+    try {
+      const startOfDay = new Date(date as string);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date as string);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const sessionsQ = await db.collection('sessions')
+        .where('created_at', '>=', startOfDay)
+        .where('created_at', '<=', endOfDay)
+        .orderBy('created_at', 'desc')
+        .get();
+
+      const history = await Promise.all(sessionsQ.docs.map(async (doc) => {
+        const s = doc.data();
+        const attQ = await db.collection('attendance').where('session_id', '==', doc.id).get();
+        const usersMap = await getUsersMap();
+
+        const attendance = attQ.docs.map(a => {
+          const data = a.data();
+          const u = usersMap[data.student_id] || {};
+          return { id: a.id, ...data, username: u.username, full_name: u.full_name, roll_number: u.roll_number };
+        });
+
+        return {
+          id: doc.id,
+          ...s,
+          created_at: s.created_at?.toDate ? s.created_at.toDate() : s.created_at,
+          attendance_count: attendance.length,
+          records: attendance
+        };
+      }));
+
+      res.json(history);
+    } catch (err) {
+      console.error('History Fetch Error:', err);
+      res.status(500).json({ error: 'Could not retrieve history' });
+    }
+  });
+
   // Attendance
   app.post('/api/mark-attendance', authenticate, handleMarkAttendance);
   app.get('/api/sessions/:id/attendance', authenticate, async (req: any, res) => {
@@ -117,9 +280,9 @@ async function startServer() {
     const q = await db.collection('attendance').where('session_id', '==', req.params.id).orderBy('timestamp', 'desc').get();
     const usersMap = await getUsersMap();
     const records = q.docs.map(doc => {
-        const data = doc.data();
-        const u = usersMap[data.student_id] || {};
-        return { id: doc.id, ...data, username: u.username, full_name: u.full_name, program: u.program, roll_number: u.roll_number };
+      const data = doc.data();
+      const u = usersMap[data.student_id] || {};
+      return { id: doc.id, ...data, username: u.username, full_name: u.full_name, program: u.program, roll_number: u.roll_number };
     });
     res.json(records);
   });
@@ -130,9 +293,9 @@ async function startServer() {
     const q = await db.collection('audit_logs').orderBy('timestamp', 'desc').limit(100).get();
     const usersMap = await getUsersMap();
     const logs = q.docs.map(doc => {
-       const data = doc.data();
-       const u = usersMap[data.user_id] || {};
-       return { id: doc.id, ...data, username: u.username, full_name: u.full_name };
+      const data = doc.data();
+      const u = usersMap[data.user_id] || {};
+      return { id: doc.id, ...data, username: u.username, full_name: u.full_name };
     });
     res.json(logs);
   });
@@ -148,9 +311,9 @@ async function startServer() {
     const q = await db.collection('suspicious_captures').orderBy('timestamp', 'desc').get();
     const usersMap = await getUsersMap();
     const captures = q.docs.map(doc => {
-       const data = doc.data();
-       const u = usersMap[data.student_id] || {};
-       return { id: doc.id, ...data, full_name: u.full_name, username: u.username };
+      const data = doc.data();
+      const u = usersMap[data.student_id] || {};
+      return { id: doc.id, ...data, full_name: u.full_name, username: u.username };
     });
     res.json(captures);
   });
@@ -160,9 +323,9 @@ async function startServer() {
     const q = await db.collection('security_incidents').orderBy('timestamp', 'desc').limit(100).get();
     const usersMap = await getUsersMap();
     const incidents = q.docs.map(doc => {
-       const data = doc.data();
-       const u = usersMap[data.user_id] || {};
-       return { id: doc.id, ...data, full_name: u.full_name, username: u.username };
+      const data = doc.data();
+      const u = usersMap[data.user_id] || {};
+      return { id: doc.id, ...data, full_name: u.full_name, username: u.username };
     });
     res.json(incidents);
   });
@@ -193,16 +356,16 @@ async function startServer() {
   // --- HEALTH & MONITORING ---
   app.get('/api/admin/health-stats', authenticate, async (req: any, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-    
+
     // Aggregated Health Check
     const [sCount, tCount, aCount, incCount, ipCount] = await Promise.all([
-        db.collection('students').count().get(),
-        db.collection('teachers').count().get(),
-        db.collection('admins').count().get(),
-        db.collection('security_incidents').count().get(),
-        db.collection('blocked_ips').count().get()
+      db.collection('students').count().get(),
+      db.collection('teachers').count().get(),
+      db.collection('admins').count().get(),
+      db.collection('security_incidents').count().get(),
+      db.collection('blocked_ips').count().get()
     ]);
-    
+
     const stats = {
       activeUsers: { count: sCount.data().count + tCount.data().count + aCount.data().count },
       totalIncidents: { count: incCount.data().count },
@@ -219,10 +382,10 @@ async function startServer() {
   // Build Detection: Help the user if they've forgotten to build
   app.use(async (req, res, next) => {
     if (req.path.startsWith('/api/')) return next();
-    
+
     const fs = (await import('fs')).default;
     if (!fs.existsSync(indexHtmlPath)) {
-        return res.status(200).send(`
+      return res.status(200).send(`
             <div style="font-family: sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; background: #f8fafc;">
                 <div style="background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-width: 400px; text-align: center;">
                     <h1 style="color: #ef4444; margin-bottom: 1rem;">Setup Required</h1>
@@ -246,8 +409,9 @@ async function startServer() {
     res.sendFile(indexHtmlPath);
   });
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Backend API running on port ${PORT}`);
+  const port = Number(PORT);
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`Backend API running on port ${port}`);
   });
 }
 

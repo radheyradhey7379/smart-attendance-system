@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { User } from '../../lib/types';
 import { motion } from 'motion/react';
 import { ShieldCheck, LogIn, UserPlus, ShieldAlert, CheckCircle2, Loader2, School } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
@@ -60,12 +59,8 @@ export const AuthPage = ({ onLogin }: { onLogin: (user: User) => void }) => {
       } else {
         setError(data.error);
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        setError('Server is taking too long to wake up. Please try one more time.');
-      } else {
-        setError('Connection failed. Please check your internet or try again later.');
-      }
+    } catch (err) {
+      setError('Connection failed');
     } finally {
       setLoading(false);
     }

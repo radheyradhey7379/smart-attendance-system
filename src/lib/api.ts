@@ -1,45 +1,51 @@
 import { Capacitor } from '@capacitor/core';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// Hardcoded fallback to ensure production works even if env variables fail
+const FALLBACK_URL = 'https://smart-attendance-system-backend-k1o1.onrender.com';
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || FALLBACK_URL).replace(/\/$/, '');
 
-const fetchWithTimeout = async (url: string, options: RequestInit = {}) => {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), 3000);
-  try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(id);
-    return res;
-  } catch (err) {
-    clearTimeout(id);
-    throw err;
-  }
-};
-
+/**
+ * Super-Resilient Fetch
+ * Handles timeouts and cold starts with a single, high-patience attempt.
+ */
 export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
   const path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const isNative = Capacitor.isNativePlatform();
   
-  // Standard Web/Server behavior
-  if (!Capacitor.isNativePlatform()) {
-    const url = `${API_BASE_URL}${path}`;
-    options.credentials = 'include';
-    return fetch(url, options);
+  // 1. Determine Target URL
+  let targetUrl = `${API_BASE_URL}${path}`;
+  
+  // 2. Local Fallback only for DEV on Native
+  if (isNative && !import.meta.env.PROD) {
+    // If we're in dev mode on a phone, we prioritize localhost/emulator
+    // but the user wants production to work "permanently", so we'll 
+    // stick to the configured API_BASE_URL which is likely production.
   }
 
-  // Capacitor/Android specific routing
+  console.log(`[API] Connection to: ${targetUrl}`);
+
+  // 3. Robust Execution
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s patience for Render
+
   try {
-    // 1. Try Local Office Network IP
-    return await fetchWithTimeout('http://10.42.34.210:3000' + path, options);
-  } catch (e) {
-    try {
-      // 2. Try Android Emulator Host IP
-      return await fetchWithTimeout('http://10.0.2.2:3000' + path, options);
-    } catch (innerE) {
-      // 3. Final Fallback: Production Server (Render)
-      const prodUrl = API_BASE_URL.replace(/\/$/, '');
-      if (prodUrl) {
-          return await fetchWithTimeout(prodUrl + path, options);
-      }
-      throw innerE;
-    }
+    const res = await fetch(targetUrl, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...options.headers
+      },
+      // Important for cookies/sessions in some environments
+      credentials: isNative ? undefined : 'include'
+    });
+    
+    clearTimeout(timeoutId);
+    return res;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    console.error(`[API] Critical failure: ${err.message}`);
+    throw err;
   }
 };
