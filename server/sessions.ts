@@ -49,13 +49,13 @@ export const handleStartSession = async (req: any, res: any) => {
   const { lat, lon, branch, subBranch, className, section, subject } = req.body;
   const token = crypto.randomBytes(16).toString('hex');
 
-  // V2.0 Hardened Code Generation: Deterministic Subject Code with Numeric Fallback
+  // V3.0 Teacher-Controlled Code Logic: Prioritize Subject/Course Code
   let session_code = Math.floor(100000 + Math.random() * 900000).toString();
 
-  if (subject && subject.trim().length >= 2) {
+  if (subject && subject.trim().length >= 1) {
     const normalized = subject.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    // Only use normalized subject if it yields a valid, non-empty identifier
-    if (normalized.length >= 2) {
+    // Prioritize teacher's explicit Course Code if normalization results in a valid identifier
+    if (normalized.length >= 1) {
       session_code = normalized;
     }
   }

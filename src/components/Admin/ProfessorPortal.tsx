@@ -248,13 +248,27 @@ export const ProfessorPortal = ({ user, onLogout, onSecretTrigger }: { user: Use
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 gap-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">Subject Name (e.g. DAA, OS)</label>
+                      <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1 tracking-tighter">Course / Subject Code</label>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {['CSE 201', 'CSE 202', 'CSE 203', 'DAA', 'OS'].map(code => (
+                          <button
+                            key={code}
+                            type="button"
+                            onClick={() => setSelection({ ...selection, subject: code })}
+                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all border ${selection.subject === code
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100'
+                              : 'bg-white text-slate-400 border-slate-100 hover:border-indigo-200 hover:text-indigo-600'}`}
+                          >
+                            {code}
+                          </button>
+                        ))}
+                      </div>
                       <input
                         type="text"
-                        placeholder="Enter Subject"
+                        placeholder="Enter Course Code manually"
                         value={selection.subject}
                         onChange={(e) => setSelection({ ...selection, subject: e.target.value.toUpperCase() })}
-                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-black outline-none focus:ring-4 focus:ring-indigo-500/10 placeholder:text-slate-300 transition-all"
                       />
                     </div>
                     <div>
