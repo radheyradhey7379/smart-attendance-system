@@ -298,9 +298,9 @@ export default function StudentDashboard({ user, onLogout }: { user: AppSystemUs
                                     <input
                                         type="text"
                                         maxLength={6}
-                                        placeholder="Enter 6-Digit Code"
+                                        placeholder="Enter Code (e.g. CSE201)"
                                         value={sessionCode}
-                                        onChange={(e) => setSessionCode(e.target.value.replace(/\D/g, ''))}
+                                        onChange={(e) => setSessionCode(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase())}
                                         className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 text-center text-2xl font-black tracking-[0.5em] text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-200 placeholder:tracking-normal placeholder:text-sm"
                                     />
                                 </motion.div>
