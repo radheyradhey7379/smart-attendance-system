@@ -49,15 +49,11 @@ export const handleStartSession = async (req: any, res: any) => {
   const { lat, lon, branch, subBranch, className, section, subject } = req.body;
   const token = crypto.randomBytes(16).toString('hex');
 
-  // V3.0 Teacher-Controlled Code Logic: Prioritize Subject/Course Code
+  // V4.0 Simplified Choice: Use Teacher's input exactly (trimmed)
   let session_code = Math.floor(100000 + Math.random() * 900000).toString();
 
   if (subject && subject.trim().length >= 1) {
-    const normalized = subject.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-    // Prioritize teacher's explicit Course Code if normalization results in a valid identifier
-    if (normalized.length >= 1) {
-      session_code = normalized;
-    }
+    session_code = subject.trim();
   }
 
   const docRef = await db.collection('sessions').add({

@@ -306,16 +306,14 @@ export const ProfessorPortal = ({ user, onLogout, onSecretTrigger }: { user: Use
                     <div className="absolute top-2 right-2 bg-indigo-600 text-white text-[8px] px-2 py-1 rounded-full font-bold uppercase animate-pulse">Live QR Active</div>
                   </div>
 
-                  <div className="bg-indigo-600 p-8 rounded-[40px] text-white shadow-2xl shadow-indigo-200">
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-70 mb-4">Class Entry Code</p>
-                    <div className="flex items-center justify-center gap-2">
-                      <h3 className="text-6xl font-black tracking-tight">{session.session_code}</h3>
-                    </div>
-                    <div className="mt-6 pt-6 border-t border-white/10">
-                      <p className="text-[11px] font-bold uppercase tracking-widest text-indigo-100 italic">
-                        {session.subject} • {session.branch} - {session.section}
-                      </p>
-                    </div>
+                  <div className="py-4 px-6 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col items-center gap-1 shadow-sm">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Class Entry Code</p>
+                    <h3 className="text-3xl font-black text-indigo-600 tracking-wider">
+                      {session.session_code}
+                    </h3>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                      {session.subject} • {session.branch} - {session.section}
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">

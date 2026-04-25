@@ -30,7 +30,7 @@ export const handleMarkAttendance = async (req: any, res: any) => {
     return res.status(400).json({ error: 'Invalid or expired QR code' });
   }
 
-  if (session.session_code !== sessionCode) {
+  if (session.session_code.trim().toUpperCase() !== sessionCode.trim().toUpperCase()) {
     return res.status(403).json({ error: 'Invalid classroom access code.' });
   }
 
