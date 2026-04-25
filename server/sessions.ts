@@ -79,7 +79,16 @@ export const handleStartSession = async (req: any, res: any) => {
   const createdAt = new Date().toISOString();
 
   await logEvent(req.user.id, 'SESSION_START', `Professor started class session ${docRef.id} for ${branch} bin ${subBranch} [Code: ${session_code}]`, req);
-  res.json({ id: docRef.id, token: signedToken, session_code, createdAt });
+  res.json({
+    id: docRef.id,
+    token: signedToken,
+    session_code,
+    subject: subject || 'General',
+    branch: branch || 'TBD',
+    section: section || 'TBD',
+    className: className || 'TBD',
+    createdAt
+  });
 };
 
 export const handleRefreshToken = async (req: any, res: any) => {
